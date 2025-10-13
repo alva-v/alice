@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# VARIABLES
+
+aur_helper="yay"
+username=$(logname)
+repodir="/home/$username/.local/src"
+
+# FUNCTIONS
+
+check_consent() {
+    if ! whiptail --title "Alice" --yesno "You are about to start Alva's Autorice (Alice) script, are you sure?" --defaultno  0 0; then
+        exit 1
+    fi
+    clear
+}
+
+check_privileges() {
+    if [ "$EUID" -ne 0 ]; then
+        return 1
+    fi
+}
+
+error() {
+    printf "%s\n" "$1" >&2
+    exit 1
+}
+
+install_aur_helper() {
+    install_dir="$repodir/$aur_helper"
+    whiptail --title "Alice" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
+    pacman --query --quiet "$aur_helper" && return 0 # Return if already installed
+    mkdir --parents "$repodir"
+    chown -R "$username":wheel "$(dirname "$repodir")"
+    sudo -u "$username" mkdir "$install_dir"
+    sudo -u "$username " git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
+        "https://aur.archlinux.org/$aur_helper.git" "$install_dir"
+    pushd "$install_dir" > /dev/null || return 1
+    sudo -u "$username" makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
+    popd > /dev/null || return 1
+}
+
+install_base() {
+    for x in curl ca-certificates base-devel git ntp zsh dash; do
+        whiptail --title "Alice" \
+            --infobox "Installing \`$x\` which is needed for the rest of the script to work" 8 70
+        install_package "$x"
+    done
+}
+
+install_package() {
+    local package="${1}"
+    pacman --noconfirm --sync --needed "$package" > /dev/null 2>&1
+}
+
+refresh() {
+    whiptail --title "Alice" --infobox "Refreshing Pacman databases..." 7 40
+    pacman --noconfirm --sync --refresh --refresh > /dev/null 2>&1
+    whiptail --title "Alice" --infobox "Refreshing keyrings..." 7 40
+    pacman --noconfirm --sync archlinux-keyring > /dev/null 2>&1
+}
+
+sync_time() {
+    whiptail --title "Alice" --infobox "Syncing the system time..." 7 40
+    ntpd --quit --panicgate > /dev/null 2>&1
+}
+
+# SCRIPT
+
+check_privileges || error "Please run this script with root privileges (sudo)"
+check_consent || error "User exited"
+refresh || error "Error refreshing Arch keyrings"
+install_base || error "Error installing base packages"
+sync_time || error "Error syncing the system time"
+# install_aur_helper || error "Error installing AUR helper"
+
