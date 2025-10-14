@@ -21,6 +21,10 @@ check_privileges() {
     fi
 }
 
+cleanup() {
+    rm -f /etc/sudoers.d/alice-temp
+}
+
 error() {
     printf "%s\n" "$1" >&2
     exit 1
@@ -29,12 +33,17 @@ error() {
 install_aur_helper() {
     install_dir="$repodir/$aur_helper"
     whiptail --title "Alice" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
-    pacman --query --quiet "$aur_helper" && return 0 # Return if already installed
+    pacman --query --quiet "$aur_helper" > /dev/null 2>&1 && return 0 # Return if already installed
     mkdir --parents "$repodir"
     chown -R "$username":wheel "$(dirname "$repodir")"
-    sudo -u "$username" mkdir "$install_dir"
-    sudo -u "$username " git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
-        "https://aur.archlinux.org/$aur_helper.git" "$install_dir"
+    sudo -u "$username" mkdir "$install_dir" > /dev/null 2>&1
+    sudo -u "$username" git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
+        "https://aur.archlinux.org/$aur_helper.git" "$install_dir" > /dev/null || 
+        {
+            pushd "$install_dir" > /dev/null || return 1
+            sudo -u "$username" git pull --force origin master > /dev/null
+            popd > /dev/null || return 1
+        }
     pushd "$install_dir" > /dev/null || return 1
     sudo -u "$username" makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
     popd > /dev/null || return 1
@@ -60,6 +69,17 @@ refresh() {
     pacman --noconfirm --sync archlinux-keyring > /dev/null 2>&1
 }
 
+# Set a temporary auto deleting sudoers file
+set_sudoers() {
+    trap "rm -f /etc/sudoers.d/alice-temp" HUP INT QUIT TERM PWR EXIT
+    # Heredoc with <<- must be kept indented with tabs, not spaces
+    cat <<-EOF > /etc/sudoers.d/alice-temp
+		%wheel ALL=(ALL) NOPASSWD: ALL
+		root ALL=(ALL) NOPASSWD: ALL
+		Defaults:%wheel,root runcwd=*
+	EOF
+}
+
 sync_time() {
     whiptail --title "Alice" --infobox "Syncing the system time..." 7 40
     ntpd --quit --panicgate > /dev/null 2>&1
@@ -72,5 +92,7 @@ check_consent || error "User exited"
 refresh || error "Error refreshing Arch keyrings"
 install_base || error "Error installing base packages"
 sync_time || error "Error syncing the system time"
-# install_aur_helper || error "Error installing AUR helper"
-
+set_sudoers || error "Error disabling passwords for sudo usage"
+install_aur_helper || error "Error installing AUR helper"
+"$aur_helper" --yay --save --devel
+cleanup
