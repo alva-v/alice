@@ -3,6 +3,8 @@
 # VARIABLES
 
 aur_helper="yay"
+programs_file="$(dirname "$0")/programs.csv"
+tmp_programs_file="/tmp/alice-programs.csv"
 username=$(logname)
 repodir="/home/$username/.local/src"
 
@@ -62,6 +64,17 @@ install_package() {
     pacman --noconfirm --sync --needed "$package" > /dev/null 2>&1
 }
 
+install_listed_packages() {
+    ([ -f "$programs_file" ] && cp "$programs_file" "$tmp_programs_file") ||
+        curl --location --silent "$programs_file"
+    sed -i "/^#/d" "$tmp_programs_file"
+    while IFS=, read -r tag program; do
+        case "$tag" in
+            *) install_package "$program";;
+        esac
+    done < "$tmp_programs_file"
+}
+
 refresh() {
     whiptail --title "Alice" --infobox "Refreshing Pacman databases..." 7 40
     pacman --noconfirm --sync --refresh --refresh > /dev/null 2>&1
@@ -94,5 +107,6 @@ install_base || error "Error installing base packages"
 sync_time || error "Error syncing the system time"
 set_sudoers || error "Error disabling passwords for sudo usage"
 install_aur_helper || error "Error installing AUR helper"
-"$aur_helper" --yay --save --devel
+sudo -u "$username" "$aur_helper" --yay --save --devel
+install_listed_packages || error "Error installing packages"
 cleanup
