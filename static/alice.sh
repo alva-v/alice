@@ -52,7 +52,7 @@ install_aur_helper() {
 }
 
 install_base() {
-    for x in curl ca-certificates base-devel git ntp zsh dash; do
+    for x in curl ca-certificates base-devel git ntp zsh dash bc; do
         whiptail --title "Alice" \
             --infobox "Installing \`$x\` which is needed for the rest of the script to work" 8 70
         install_package "$x"
@@ -68,11 +68,18 @@ install_listed_packages() {
     ([ -f "$programs_file" ] && cp "$programs_file" "$tmp_programs_file") ||
         curl --location --silent "$programs_file"
     sed -i "/^#/d" "$tmp_programs_file"
-    while IFS=, read -r tag program; do
-        case "$tag" in
-            *) install_package "$program";;
-        esac
-    done < "$tmp_programs_file"
+    total=$(wc -l < "$tmp_programs_file")    
+    {
+        while IFS=, read -r tag program comment; do
+            n=$((n + 1))
+            percentage=$(bc -l <<< "$n/$total*100")
+            echo -e "XXX\n${percentage%%.*}\nInstalling from programs.csv: $program\nXXX" # Update whiptail gauge
+            case "$tag" in
+                # "A") install_aur "$program";;
+                *) install_package "$program";;
+            esac
+        done < "$tmp_programs_file"
+    } |whiptail --title "Alice" --gauge "Installing programs..." 8 70 0
 }
 
 refresh() {
