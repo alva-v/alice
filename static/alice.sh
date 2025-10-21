@@ -27,6 +27,10 @@ cleanup() {
     rm -f /etc/sudoers.d/alice-temp
 }
 
+configure_makepkg() {
+    sed -i "s/-j2/-j$(nproc)/;/^#MAKEFLAGS/s/^#//" /etc/makepkg.conf
+}
+
 error() {
     printf "%s\n" "$1" >&2
     exit 1
@@ -38,17 +42,23 @@ install_aur_helper() {
     pacman --query --quiet "$aur_helper" > /dev/null 2>&1 && return 0 # Return if already installed
     mkdir --parents "$repodir"
     chown -R "$username":wheel "$(dirname "$repodir")"
-    sudo -u "$username" mkdir "$install_dir" > /dev/null 2>&1
-    sudo -u "$username" git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
+    sudo --user="$username" mkdir "$install_dir" > /dev/null 2>&1
+    sudo --user="$username" git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
         "https://aur.archlinux.org/$aur_helper.git" "$install_dir" > /dev/null || 
         {
             pushd "$install_dir" > /dev/null || return 1
-            sudo -u "$username" git pull --force origin master > /dev/null
+            sudo --user="$username" git pull --force origin master > /dev/null
             popd > /dev/null || return 1
         }
     pushd "$install_dir" > /dev/null || return 1
-    sudo -u "$username" makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
+    sudo --user="$username" makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
     popd > /dev/null || return 1
+}
+
+install_aur_package() {
+    package="$1"
+    echo "$aur_installed" | grep --quiet "^$package$" && return 0
+    sudo --user="$username" "$aur_helper" -S --noconfirm "$package" > /dev/null 2>&1 || return 1
 }
 
 install_base() {
@@ -61,25 +71,26 @@ install_base() {
 
 install_package() {
     local package="${1}"
-    pacman --noconfirm --sync --needed "$package" > /dev/null 2>&1
+    pacman --noconfirm --sync --needed "$package" > /dev/null 2>&1 || return 1
+
 }
 
 install_listed_packages() {
     ([ -f "$programs_file" ] && cp "$programs_file" "$tmp_programs_file") ||
         curl --location --silent "$programs_file"
     sed -i "/^#/d" "$tmp_programs_file"
-    total=$(wc -l < "$tmp_programs_file")    
-    {
-        while IFS=, read -r tag program comment; do
-            n=$((n + 1))
-            percentage=$(bc -l <<< "$n/$total*100")
-            echo -e "XXX\n${percentage%%.*}\nInstalling from programs.csv: $program\nXXX" # Update whiptail gauge
-            case "$tag" in
-                # "A") install_aur "$program";;
-                *) install_package "$program";;
-            esac
-        done < "$tmp_programs_file"
-    } |whiptail --title "Alice" --gauge "Installing programs..." 8 70 0
+    total=$(wc -l < "$tmp_programs_file")
+    aur_installed=$(pacman --query --quiet --foreign)
+    while IFS=, read -r tag program comment; do
+        n=$((n + 1))
+        percentage=$(bc -l <<< "$n/$total*100")
+        printf "Installing package %s/%s (%s%%): %s\n" "$n" "$total" "${percentage%%.*}" "$program"
+        case "$tag" in
+            "A") install_aur_package "$program" || failed_installs+=("$program");;
+            *) install_package "$program" || failed_installs+=("$program");;
+        esac
+    done < "$tmp_programs_file"
+    echo "${failed_installs[*]}"
 }
 
 refresh() {
@@ -91,13 +102,14 @@ refresh() {
 
 # Set a temporary auto deleting sudoers file
 set_sudoers() {
-    trap "rm -f /etc/sudoers.d/alice-temp" HUP INT QUIT TERM PWR EXIT
+    tmp_sudoers="/etc/sudoers.d/alice-tmp"
+    trap 'rm -f $tmp_sudoers' HUP INT QUIT TERM PWR EXIT
     # Heredoc with <<- must be kept indented with tabs, not spaces
-    cat <<-EOF > /etc/sudoers.d/alice-temp
-		%wheel ALL=(ALL) NOPASSWD: ALL
-		root ALL=(ALL) NOPASSWD: ALL
+    cat <<-EOF > "$tmp_sudoers"
+		%wheel ALL=(ALL:ALL) NOPASSWD: ALL
 		Defaults:%wheel,root runcwd=*
 	EOF
+    chmod 440 "$tmp_sudoers"
 }
 
 sync_time() {
@@ -113,7 +125,8 @@ refresh || error "Error refreshing Arch keyrings"
 install_base || error "Error installing base packages"
 sync_time || error "Error syncing the system time"
 set_sudoers || error "Error disabling passwords for sudo usage"
+configure_makepkg
 install_aur_helper || error "Error installing AUR helper"
-sudo -u "$username" "$aur_helper" --yay --save --devel
+sudo --user="$username" "$aur_helper" --yay --save --devel
 install_listed_packages || error "Error installing packages"
 cleanup
