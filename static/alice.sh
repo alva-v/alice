@@ -7,6 +7,7 @@ programs_file="$(dirname "$0")/programs.csv"
 tmp_programs_file="/tmp/alice-programs.csv"
 username=$(logname)
 repodir="/home/$username/.local/src"
+log_dir="/home/$username/.local/state/alice"
 
 # FUNCTIONS
 
@@ -98,7 +99,13 @@ install_listed_packages() {
             *) install_package "$program" || failed_installs+=("$program");;
         esac
     done < "$tmp_programs_file"
-    echo "${failed_installs[*]}"
+    if [[ ${#failed_installs[@]} != 0 ]]; then
+        failed_log="$log_dir/failed_installs"
+        echo "Some programs could not be installed, see log in $failed_log"
+        mkdir -p "$log_dir"
+        echo "${failed_installs[*]}" > "$log_dir/failed_installs"
+        return 1
+    fi
 }
 
 refresh() {
