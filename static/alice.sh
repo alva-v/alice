@@ -17,6 +17,13 @@ check_consent() {
     clear
 }
 
+check_internet() {
+    if ! curl -s --max-time 5 --head cloudflare.com > /dev/null 2>&1; then
+        return 1
+    fi
+
+}
+
 check_privileges() {
     if [ "$EUID" -ne 0 ]; then
         return 1
@@ -81,6 +88,7 @@ install_listed_packages() {
     sed -i "/^#/d" "$tmp_programs_file"
     total=$(wc -l < "$tmp_programs_file")
     aur_installed=$(pacman --query --quiet --foreign)
+    clear
     while IFS=, read -r tag program comment; do
         n=$((n + 1))
         percentage=$(bc -l <<< "$n/$total*100")
@@ -120,6 +128,7 @@ sync_time() {
 # SCRIPT
 
 check_privileges || error "Please run this script with root privileges (sudo)"
+check_internet || error "Please connect to the internet before running this script"
 check_consent || error "User exited"
 refresh || error "Error refreshing Arch keyrings"
 install_base || error "Error installing base packages"
