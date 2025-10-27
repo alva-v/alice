@@ -3,6 +3,8 @@
 # VARIABLES
 
 aur_helper="yay"
+dotfiles_repository="https://github.com/alva-v/dotfiles.git"
+infobox_title="Alice"
 programs_file="$(dirname "$0")/programs.csv"
 tmp_programs_file="/tmp/alice-programs.csv"
 username=$(logname)
@@ -12,7 +14,7 @@ log_dir="/home/$username/.local/state/alice"
 # FUNCTIONS
 
 check_consent() {
-    if ! whiptail --title "Alice" --yesno "You are about to start Alva's Autorice (Alice) script, are you sure?" --defaultno  0 0; then
+    if ! whiptail --title "$infobox_title" --yesno "You are about to start Alva's Autorice (Alice) script, are you sure?" --defaultno  0 0; then
         exit 1
     fi
     clear
@@ -46,7 +48,7 @@ error() {
 
 install_aur_helper() {
     install_dir="$repodir/$aur_helper"
-    whiptail --title "Alice" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
+    whiptail --title "$infobox_title" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
     pacman --query --quiet "$aur_helper" > /dev/null 2>&1 && return 0 # Return if already installed
     mkdir --parents "$repodir"
     chown -R "$username":wheel "$(dirname "$repodir")"
@@ -71,10 +73,20 @@ install_aur_package() {
 
 install_base() {
     for x in curl ca-certificates base-devel git ntp zsh dash bc; do
-        whiptail --title "Alice" \
+        whiptail --title "$infobox_title" \
             --infobox "Installing \`$x\` which is needed for the rest of the script to work" 8 70
         install_package "$x"
     done
+}
+
+install_dotfiles() {
+    folder="/home/$username/code/dotfiles"
+    whiptail --title "$infobox_title" --infobox "Downloading and installing dotfiles in code folder..." 7 60
+    if ! git -C "$folder" status > /dev/null 2>&1;then # Create git dir if missing
+        [ ! -d "$folder" ] && mkdir -p "$folder"
+        chown "$username:wheel" "$folder"
+        sudo -u "$username" git -C "$folder" clone "$dotfiles_repository"
+    fi
 }
 
 install_package() {
@@ -109,9 +121,9 @@ install_listed_packages() {
 }
 
 refresh() {
-    whiptail --title "Alice" --infobox "Refreshing Pacman databases..." 7 40
+    whiptail --title "$infobox_title" --infobox "Refreshing Pacman databases..." 7 40
     pacman --noconfirm --sync --refresh --refresh > /dev/null 2>&1
-    whiptail --title "Alice" --infobox "Refreshing keyrings..." 7 40
+    whiptail --title "$infobox_title" --infobox "Refreshing keyrings..." 7 40
     pacman --noconfirm --sync archlinux-keyring > /dev/null 2>&1
 }
 
@@ -128,7 +140,7 @@ set_sudoers() {
 }
 
 sync_time() {
-    whiptail --title "Alice" --infobox "Syncing the system time..." 7 40
+    whiptail --title "$infobox_title" --infobox "Syncing the system time..." 7 40
     ntpd --quit --panicgate > /dev/null 2>&1
 }
 
@@ -145,4 +157,5 @@ configure_makepkg
 install_aur_helper || error "Error installing AUR helper"
 sudo --user="$username" "$aur_helper" --yay --save --devel
 install_listed_packages || error "Error installing packages"
+install_dotfiles || error "Error installing dotfiles"
 cleanup
