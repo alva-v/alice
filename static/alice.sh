@@ -80,13 +80,13 @@ install_base() {
 }
 
 install_dotfiles() {
-    folder="/home/$username/code/dotfiles"
+    folder="/home/$username/.dotfiles"
     whiptail --title "$infobox_title" --infobox "Downloading and installing dotfiles in code folder..." 7 60
     if ! git -C "$folder" status > /dev/null 2>&1;then # Create git dir if missing
-        [ ! -d "$folder" ] && mkdir -p "$folder"
-        chown "$username:wheel" "$folder"
+        [ ! -d "$folder" ] && sudo -u "$username" mkdir -p "$folder"
         sudo -u "$username" git -C "$folder" clone "$dotfiles_repository"
     fi
+    bash "$folder/bootstrap.sh"
 }
 
 install_package() {
