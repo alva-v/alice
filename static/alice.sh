@@ -4,7 +4,7 @@
 
 aur_helper="yay"
 dotfiles_repository="https://github.com/alva-v/dotfiles.git"
-infobox_title="Alice"
+whiptail_title="Alice"
 programs_file="$(dirname "$0")/programs.csv"
 tmp_programs_file="/tmp/alice-programs.csv"
 username=$(logname)
@@ -14,7 +14,8 @@ log_dir="/home/$username/.local/state/alice"
 # FUNCTIONS
 
 check_consent() {
-    if ! whiptail --title "$infobox_title" --yesno "You are about to start Alva's Autorice (Alice) script, are you sure?" --defaultno  0 0; then
+    if ! whiptail --title "$whiptail_title" --yesno "You are about to start Alva's Autorice (Alice) script, are you sure?" --defaultno  0 0; then
+        clear
         exit 1
     fi
     clear
@@ -48,7 +49,7 @@ error() {
 
 install_aur_helper() {
     install_dir="$repodir/$aur_helper"
-    whiptail --title "$infobox_title" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
+    echo "Installing \`$aur_helper\` AUR helper..."
     pacman --query --quiet "$aur_helper" > /dev/null 2>&1 && return 0 # Return if already installed
     runuser -u "$username" -- mkdir --parents "$repodir"
     runuser -u "$username" -- mkdir "$install_dir" > /dev/null 2>&1
@@ -71,16 +72,16 @@ install_aur_package() {
 }
 
 install_base() {
+    echo "Installing softwares needed for the rest of the script to work..."
     for x in curl ca-certificates base-devel git ntp zsh dash bc; do
-        whiptail --title "$infobox_title" \
-            --infobox "Installing \`$x\` which is needed for the rest of the script to work" 8 70
+        echo "Installing \`$x\`"
         install_package "$x"
     done
 }
 
 install_dotfiles() {
     folder="/home/$username/.dotfiles"
-    whiptail --title "$infobox_title" --infobox "Downloading and installing dotfiles in code folder..." 7 60
+    echo "Downloading and installing dotfiles in code folder..."
     if ! git -C "$folder" status > /dev/null 2>&1;then # Create git dir if missing
         [ ! -d "$folder" ] && sudo -u "$username" mkdir -p "$folder"
         sudo -u "$username" git clone "$dotfiles_repository" "$folder"
@@ -100,7 +101,6 @@ install_listed_packages() {
     sed -i "/^#/d" "$tmp_programs_file"
     total=$(wc -l < "$tmp_programs_file")
     aur_installed=$(pacman --query --quiet --foreign)
-    clear
     while IFS=, read -r tag program comment; do
         n=$((n + 1))
         percentage=$(bc -l <<< "$n/$total*100")
@@ -120,9 +120,9 @@ install_listed_packages() {
 }
 
 refresh() {
-    whiptail --title "$infobox_title" --infobox "Refreshing Pacman databases..." 7 40
+    echo "Refreshing Pacman databases..."
     pacman --noconfirm --sync --refresh --refresh > /dev/null 2>&1
-    whiptail --title "$infobox_title" --infobox "Refreshing keyrings..." 7 40
+    echo "Refreshing keyrings..."
     pacman --noconfirm --sync archlinux-keyring > /dev/null 2>&1
 }
 
@@ -139,7 +139,7 @@ set_sudoers() {
 }
 
 sync_time() {
-    whiptail --title "$infobox_title" --infobox "Syncing system time..." 7 40
+    echo "Syncing system time..."
     ntpd --quit --panicgate > /dev/null 2>&1
 }
 
