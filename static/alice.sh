@@ -50,25 +50,24 @@ install_aur_helper() {
     install_dir="$repodir/$aur_helper"
     whiptail --title "$infobox_title" --infobox "Installing \`$aur_helper\` AUR helper..." 7 40
     pacman --query --quiet "$aur_helper" > /dev/null 2>&1 && return 0 # Return if already installed
-    mkdir --parents "$repodir"
-    chown -R "$username":wheel "$(dirname "$repodir")"
-    sudo --user="$username" mkdir "$install_dir" > /dev/null 2>&1
-    sudo --user="$username" git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
+    runuser -u "$username" -- mkdir --parents "$repodir"
+    runuser -u "$username" -- mkdir "$install_dir" > /dev/null 2>&1
+    runuser -u "$username" -- git -C "$repodir" clone --depth 1 --single-branch --no-tags --quiet \
         "https://aur.archlinux.org/$aur_helper.git" "$install_dir" > /dev/null || 
         {
             pushd "$install_dir" > /dev/null || return 1
-            sudo --user="$username" git pull --force origin master > /dev/null
+            runuser -u "$username" -- git pull --force origin master > /dev/null
             popd > /dev/null || return 1
         }
     pushd "$install_dir" > /dev/null || return 1
-    sudo --user="$username" makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
+    runuser -u "$username" -- makepkg --noconfirm --syncdeps --install > /dev/null 2>&1
     popd > /dev/null || return 1
 }
 
 install_aur_package() {
     package="$1"
     echo "$aur_installed" | grep --quiet "^$package$" && return 0
-    sudo --user="$username" "$aur_helper" -S --noconfirm "$package" > /dev/null 2>&1 || return 1
+    runuser -u "$username" -- "$aur_helper" -S --noconfirm "$package" > /dev/null 2>&1 || return 1
 }
 
 install_base() {
@@ -84,9 +83,9 @@ install_dotfiles() {
     whiptail --title "$infobox_title" --infobox "Downloading and installing dotfiles in code folder..." 7 60
     if ! git -C "$folder" status > /dev/null 2>&1;then # Create git dir if missing
         [ ! -d "$folder" ] && sudo -u "$username" mkdir -p "$folder"
-        sudo -u "$username" git -C "$folder" clone "$dotfiles_repository"
+        sudo -u "$username" git clone "$dotfiles_repository" "$folder"
     fi
-    bash "$folder/bootstrap.sh"
+    sudo -u "$username" bash "$folder/bootstrap.sh"
 }
 
 install_package() {
@@ -114,7 +113,7 @@ install_listed_packages() {
     if [[ ${#failed_installs[@]} != 0 ]]; then
         failed_log="$log_dir/failed_installs"
         echo "Some programs could not be installed, see log in $failed_log"
-        mkdir -p "$log_dir"
+        runuser -u "$username" -- mkdir -p "$log_dir"
         echo "${failed_installs[*]}" > "$log_dir/failed_installs"
         return 1
     fi
@@ -129,18 +128,18 @@ refresh() {
 
 # Set a temporary auto deleting sudoers file
 set_sudoers() {
-    tmp_sudoers="/etc/sudoers.d/alice-tmp"
+    tmp_sudoers="/etc/sudoers.d/99-alice-tmp"
     trap 'rm -f $tmp_sudoers' HUP INT QUIT TERM PWR EXIT
     # Heredoc with <<- must be kept indented with tabs, not spaces
     cat <<-EOF > "$tmp_sudoers"
-		%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+		$username ALL=(ALL:ALL) NOPASSWD: ALL
 		Defaults:%wheel,root runcwd=*
 	EOF
     chmod 440 "$tmp_sudoers"
 }
 
 sync_time() {
-    whiptail --title "$infobox_title" --infobox "Syncing the system time..." 7 40
+    whiptail --title "$infobox_title" --infobox "Syncing system time..." 7 40
     ntpd --quit --panicgate > /dev/null 2>&1
 }
 
@@ -155,7 +154,8 @@ sync_time || error "Error syncing the system time"
 set_sudoers || error "Error disabling passwords for sudo usage"
 configure_makepkg
 install_aur_helper || error "Error installing AUR helper"
-sudo --user="$username" "$aur_helper" --yay --save --devel
+runuser -u "$username" -- "$aur_helper" --yay --save --devel
 install_listed_packages || error "Error installing packages"
 install_dotfiles || error "Error installing dotfiles"
 cleanup
+echo "Alice is done, enjoy!"
