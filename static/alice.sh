@@ -10,6 +10,7 @@ tmp_programs_file="/tmp/alice-programs.csv"
 username=$(logname)
 repodir="/home/$username/.local/src"
 log_dir="/home/$username/.local/state/alice"
+wallpaper_url="https://images.pexels.com/photos/2559941/pexels-photo-2559941.jpeg"
 
 # FUNCTIONS
 
@@ -96,6 +97,7 @@ install_package() {
 }
 
 install_listed_packages() {
+    echo "Installing listed programs..."
     ([ -f "$programs_file" ] && cp "$programs_file" "$tmp_programs_file") ||
         curl --location --silent "$programs_file"
     sed -i "/^#/d" "$tmp_programs_file"
@@ -138,13 +140,25 @@ set_sudoers() {
     chmod 440 "$tmp_sudoers"
 }
 
+set_wallpaper() {
+    extension=${wallpaper_url##*.}
+    destination="/home/$username/Pictures/wp.$extension"
+    fehbg_file="/home/$username/.fehbg"
+    runuser -u "$username" -- curl --silent "$wallpaper_url" --create-dirs --output "$destination"
+    cat <<-EOF > "$fehbg_file"
+		#!/bin/sh
+		feh --no-fehbg --bg-fill $destination
+	EOF
+    chown "$username:$username" "$fehbg_file"
+    chmod 755 "$fehbg_file"
+}
+
 sync_time() {
     echo "Syncing system time..."
     ntpd --quit --panicgate > /dev/null 2>&1
 }
 
 # SCRIPT
-
 check_privileges || error "Please run this script with root privileges (sudo)"
 check_internet || error "Please connect to the internet before running this script"
 check_consent || error "User exited"
@@ -157,5 +171,6 @@ install_aur_helper || error "Error installing AUR helper"
 runuser -u "$username" -- "$aur_helper" --yay --save --devel
 install_listed_packages || error "Error installing packages"
 install_dotfiles || error "Error installing dotfiles"
+set_wallpaper || echo "Error setting wallpaper"
 cleanup
 echo "Alice is done, enjoy!"
