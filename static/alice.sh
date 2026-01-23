@@ -73,7 +73,7 @@ install_aur_package() {
 
 install_base() {
     echo "Installing softwares needed for the rest of the script to work..."
-    for x in curl ca-certificates base-devel git ntp zsh dash bc; do
+    for x in curl ca-certificates base-devel git ntp bc; do
         echo "Installing \`$x\`"
         install_package "$x"
     done
