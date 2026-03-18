@@ -153,6 +153,10 @@ set_wallpaper() {
     chmod 755 "$fehbg_file"
 }
 
+start_services() {
+    systemctl start bluetooth.service
+}
+
 sync_time() {
     echo "Syncing system time..."
     ntpd --quit --panicgate > /dev/null 2>&1
@@ -171,6 +175,7 @@ install_aur_helper || error "Error installing AUR helper"
 runuser -u "$username" -- "$aur_helper" --yay --save --devel
 install_listed_packages || error "Error installing packages"
 install_dotfiles || error "Error installing dotfiles"
+start_services || error "Error starting services"
 set_wallpaper || echo "Error setting wallpaper"
 cleanup
 echo "Alice is done, enjoy!"
