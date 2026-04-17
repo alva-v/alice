@@ -11,7 +11,7 @@
 - A fresh Arch Linux installation
 - Internet connection
 - Root access
-- See the [Dotfiles README](https://github.com/alva-v/dotfiles/blob/main/Readme.md) before running
+- See the [Dotfiles README](https://github.com/alva-v/dotfiles) before running
 
 ## Usage
 
