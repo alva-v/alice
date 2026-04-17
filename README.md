@@ -1,6 +1,8 @@
 # Alice
 
-<img style="display:block; margin: auto auto" src="./media/alice.png"/>
+<p align="center">
+<img src="./media/alice.png"/>
+</p>
 
 Alice (**Al**va's Autor**ice**) is a script to automatically set up an i3 desktop environnement catering to my needs.
 
