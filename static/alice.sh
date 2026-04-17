@@ -140,6 +140,12 @@ set_sudoers() {
     chmod 440 "$tmp_sudoers"
 }
 
+set_system_config() {
+    setcap cap_ipc_lock=+ep /usr/bin/gnome-keyring-daemon # Make sure no keyring is saved to swap
+    cp -f ./root/etc/pam.d/login /etc/pam.d/login
+    cp -f ./root/etc/pam.d/passwd /etc/pam.d/passwd
+}
+
 set_wallpaper() {
     extension=${wallpaper_url##*.}
     destination="/home/$username/Pictures/wp.$extension"
@@ -170,6 +176,7 @@ refresh || error "Error refreshing Arch keyrings"
 install_base || error "Error installing base packages"
 sync_time || error "Error syncing the system time"
 set_sudoers || error "Error disabling passwords for sudo usage"
+set_system_config || error "Error setting up system configs"
 configure_makepkg
 install_aur_helper || error "Error installing AUR helper"
 runuser -u "$username" -- "$aur_helper" --yay --save --devel
