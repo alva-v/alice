@@ -4,7 +4,7 @@
 <img src="./media/alice.png"/>
 </p>
 
-Alice (**Al**va's Autor**ice**) is a script to automatically set up an i3 desktop environnement catering to my needs.
+**Alice** (**Al**va's autor**ice**) is a script to automatically set up a i3 desktop environnement catering to my needs.
 
 ## Prerequisites
 
