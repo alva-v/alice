@@ -18,6 +18,7 @@
 ,ncmpcpp,"a ncurses interface for music with multiple formats and a powerful tag editor."
 A,arkenfox-user.js,"provides hardened security settings for Firefox and Librewolf to avoid Mozilla spyware and general web fingerprinting."
 ,noto-fonts,"is an expansive font package."
+,noto-fonts-cjk, "is a chinese, japanese and korean characters font package"
 ,noto-fonts-emoji,"is an emoji font."
 ,ntfs-3g,"allows accessing NTFS partitions."
 ,wireplumber,"is the audio system."&
